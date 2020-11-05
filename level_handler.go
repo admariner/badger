@@ -254,9 +254,11 @@ func (s *levelHandler) getTableForKey(key []byte) ([]*table.Table, func() error)
 func (s *levelHandler) get(key []byte) (y.ValueStruct, error) {
 	tables, decr := s.getTableForKey(key)
 	keyNoTs := y.ParseKey(key)
-
 	hash := y.Hash(keyNoTs)
 	var maxVs y.ValueStruct
+
+	// fmt.Println("tables: ", tables)
+	var fname string
 	for _, th := range tables {
 		if th.DoesNotHave(hash) {
 			y.NumLSMBloomHits.Add(s.strLevel, 1)
@@ -274,9 +276,13 @@ func (s *levelHandler) get(key []byte) (y.ValueStruct, error) {
 		if y.SameKey(key, it.Key()) {
 			if version := y.ParseTs(it.Key()); maxVs.Version < version {
 				maxVs = it.ValueCopy()
+				fname = th.Fd.Name()
 				maxVs.Version = version
 			}
 		}
+	}
+	if len(fname) != 0 {
+		fmt.Println("filename: ", fname)
 	}
 	return maxVs, decr()
 }

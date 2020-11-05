@@ -32,6 +32,7 @@ import (
 
 	otrace "go.opencensus.io/trace"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/dgraph-io/badger/v2/table"
 	"github.com/dgraph-io/badger/v2/y"
@@ -796,7 +797,21 @@ func (s *levelsController) subcompact(it y.Iterator, kr keyRange, cd compactDef,
 
 			build := func(fileID uint64) (*table.Table, error) {
 				fname := table.NewFilename(fileID, s.kv.opt.Dir)
-				return table.CreateTable(fname, builder.Finish(false), bopts)
+				x, err := table.CreateTable(fname, builder.Finish(false), bopts)
+				fmt.Printf("Compacting table s:%s b:%s name:%s\n", string(x.Smallest()), string(x.Biggest()), x.Fd.Name())
+
+				key := x.Smallest()
+				it := x.NewIterator(0)
+				defer it.Close()
+				it.Seek(key)
+				if y.SameKey(key, it.Key()) {
+					maxVs := it.ValueCopy()
+					spew.Dump(maxVs)
+				}
+				fmt.Println("levels: ", cd.thisLevel.level, cd.nextLevel.level)
+				// x.get()
+				// fmt.Printf("Smallest\n", string(x.Smallest()), string(x.Biggest()), x.Fd.Name())
+				return x, err
 			}
 
 			var tbl *table.Table
@@ -1228,6 +1243,8 @@ func (s *levelsController) fillTables(cd *compactDef) bool {
 }
 
 func (s *levelsController) runCompactDef(id, l int, cd compactDef) (err error) {
+	// fmt.Printf("\nCompact == id: %d ranges: [%s->%s]\n", id, string(cd.thisRange.left), string(cd.thisRange.right))
+	// defer fmt.Printf("Done == id: %d ranges: [%s->%s]\n", id, string(cd.thisRange.left), string(cd.thisRange.right))
 	if len(cd.t.fileSz) == 0 {
 		return errors.New("Filesizes cannot be zero. Targets are not set")
 	}

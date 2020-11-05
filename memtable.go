@@ -130,6 +130,7 @@ func (db *DB) openMemTable(fid int) (*memTable, error) {
 	// Have a callback set to delete WAL when skiplist reference count goes down to zero. That is,
 	// when it gets flushed to L0.
 	s.OnClose = func() {
+		fmt.Printf("Deleting %d\n", mt.wal.fid)
 		if err := mt.wal.Delete(); err != nil {
 			db.opt.Errorf("while deleting file: %s, err: %v", filepath, err)
 		}

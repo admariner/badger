@@ -670,6 +670,7 @@ func (db *DB) get(key []byte) (y.ValueStruct, error) {
 			maxVs = vs
 		}
 	}
+	// fmt.Printf("\ngetting key: %s from LSM\n", string(key))
 	return db.lc.get(key, maxVs, 0)
 }
 
@@ -951,7 +952,11 @@ func buildL0Table(ft flushTask, bopts table.Options) []byte {
 	defer b.Close()
 
 	var vp valuePointer
+	var last []byte
 	for iter.SeekToFirst(); iter.Valid(); iter.Next() {
+		if len(last) == 0 {
+			fmt.Printf("L = %+v ", string(iter.Key()))
+		}
 		if len(ft.dropPrefixes) > 0 && hasAnyPrefixes(iter.Key(), ft.dropPrefixes) {
 			continue
 		}
@@ -960,7 +965,9 @@ func buildL0Table(ft flushTask, bopts table.Options) []byte {
 			vp.Decode(vs.Value)
 		}
 		b.Add(iter.Key(), iter.Value(), vp.Len)
+		last = append([]byte{}, iter.Key()...)
 	}
+	fmt.Printf("R = %+v", string(last))
 	return b.Finish(true)
 }
 
@@ -971,6 +978,8 @@ type flushTask struct {
 
 // handleFlushTask must be run serially.
 func (db *DB) handleFlushTask(ft flushTask) error {
+	fmt.Printf("flushing ft.mt.wal.fid = %+v ", ft.mt.wal.fid)
+	// defer fmt.Printf("Done %+v ", ft.mt.wal.fid)
 	// There can be a scenario, when empty memtable is flushed.
 	if ft.mt.sl.Empty() {
 		return nil
@@ -1004,6 +1013,7 @@ func (db *DB) handleFlushTask(ft flushTask) error {
 	if err != nil {
 		return y.Wrap(err, "error while creating table")
 	}
+	defer fmt.Printf("done %d %s ", ft.mt.wal.fid, tbl.Fd.Name())
 	// We own a ref on tbl.
 	err = db.lc.addLevel0Table(tbl) // This will incrRef
 	_ = tbl.DecrRef()               // Releases our ref.
