@@ -953,7 +953,18 @@ func buildL0Table(ft flushTask, bopts table.Options) []byte {
 
 	var vp valuePointer
 	var last []byte
+	var lastDel []byte
 	for iter.SeekToFirst(); iter.Valid(); iter.Next() {
+		if iter.Value().Meta&bitDelete > 0 {
+			if len(lastDel) == 0 {
+				lastDel = iter.Key()
+			}
+		} else {
+			if len(lastDel) > 0 {
+				fmt.Println("lastDel:", string(lastDel), "lastKey: ", string(last))
+			}
+			lastDel = nil
+		}
 		if len(last) == 0 {
 			fmt.Printf("L = %+v ", string(iter.Key()))
 		}
@@ -967,6 +978,7 @@ func buildL0Table(ft flushTask, bopts table.Options) []byte {
 		b.Add(iter.Key(), iter.Value(), vp.Len)
 		last = append([]byte{}, iter.Key()...)
 	}
+	fmt.Println("[END] lastDel:", string(lastDel), "lastKey: ", string(last))
 	fmt.Printf("R = %+v", string(last))
 	return b.Finish(true)
 }

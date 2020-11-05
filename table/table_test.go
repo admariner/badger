@@ -33,6 +33,7 @@ import (
 	"github.com/dgraph-io/badger/v2/options"
 	"github.com/dgraph-io/badger/v2/y"
 	"github.com/dgraph-io/ristretto"
+	"github.com/dgraph-io/ristretto/z"
 	"github.com/stretchr/testify/require"
 )
 
@@ -920,4 +921,20 @@ func TestMaxVersion(t *testing.T) {
 	table, err := CreateTable(filename, b.Finish(false), opt)
 	require.NoError(t, err)
 	require.Equal(t, N, int(table.MaxVersion()))
+}
+
+func TestSomething(t *testing.T) {
+	opts := Options{Compression: options.None, BlockSize: 4 * 1024, BloomFalsePositive: 0.01}
+	filename := "/home/ash/my/badger-test460362862/000044.sst"
+	mf, err := z.OpenMmapFile(filename, os.O_RDONLY, 0)
+
+	require.NoError(t, err)
+
+	tbl, err := OpenTable(mf, opts)
+	require.NoError(t, err)
+
+	it := tbl.NewIterator(0)
+	for it.Rewind(); it.Valid(); it.Next() {
+		fmt.Println(string(it.Key()), it.Value().Meta&1)
+	}
 }

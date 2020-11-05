@@ -32,7 +32,6 @@ import (
 
 	otrace "go.opencensus.io/trace"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/dgraph-io/badger/v2/pb"
 	"github.com/dgraph-io/badger/v2/table"
 	"github.com/dgraph-io/badger/v2/y"
@@ -649,6 +648,7 @@ func (s *levelsController) subcompact(it y.Iterator, kr keyRange, cd compactDef,
 		for ; it.Valid(); it.Next() {
 			// See if we need to skip the prefix.
 			if len(cd.dropPrefixes) > 0 && hasAnyPrefixes(it.Key(), cd.dropPrefixes) {
+				fmt.Println("[DELETING DROPPREFIX] ", string(it.Key()))
 				numSkips++
 				updateStats(it.Value())
 				continue
@@ -657,6 +657,7 @@ func (s *levelsController) subcompact(it y.Iterator, kr keyRange, cd compactDef,
 			// See if we need to skip this key.
 			if len(skipKey) > 0 {
 				if y.SameKey(it.Key(), skipKey) {
+					fmt.Println("[DELETING SKIPKEY] ", string(it.Key()))
 					numSkips++
 					updateStats(it.Value())
 					continue
@@ -735,6 +736,7 @@ func (s *levelsController) subcompact(it y.Iterator, kr keyRange, cd compactDef,
 						// If no overlap, we can skip all the versions, by continuing here.
 						numSkips++
 						updateStats(vs)
+						fmt.Println("[DELETING] ", string(it.Key()))
 						continue // Skip adding this key.
 					}
 				}
@@ -754,6 +756,8 @@ func (s *levelsController) subcompact(it y.Iterator, kr keyRange, cd compactDef,
 	} else {
 		it.Rewind()
 	}
+	fmt.Printf("[subcompact] Range left: %s, right: %s, it-start: %s\n",
+		string(kr.left), string(kr.right), string(it.Key()))
 	for it.Valid() {
 		if len(kr.right) > 0 && y.CompareKeys(it.Key(), kr.right) >= 0 {
 			break
@@ -800,14 +804,16 @@ func (s *levelsController) subcompact(it y.Iterator, kr keyRange, cd compactDef,
 				x, err := table.CreateTable(fname, builder.Finish(false), bopts)
 				fmt.Printf("Compacting table s:%s b:%s name:%s\n", string(x.Smallest()), string(x.Biggest()), x.Fd.Name())
 
-				key := x.Smallest()
 				it := x.NewIterator(0)
 				defer it.Close()
-				it.Seek(key)
-				if y.SameKey(key, it.Key()) {
-					maxVs := it.ValueCopy()
-					spew.Dump(maxVs)
+				var buf bytes.Buffer
+				buf.Write([]byte(fmt.Sprintf("%d ", fileID)))
+				for it.Rewind(); it.Valid(); it.Next() {
+					if it.Value().Meta&1 > 0 {
+						buf.Write([]byte(fmt.Sprintf("[DELETED] %s %t ", string(it.Key()), it.Value().Meta&1 > 0)))
+					}
 				}
+				fmt.Println(string(buf.Bytes()))
 				fmt.Println("levels: ", cd.thisLevel.level, cd.nextLevel.level)
 				// x.get()
 				// fmt.Printf("Smallest\n", string(x.Smallest()), string(x.Biggest()), x.Fd.Name())
@@ -1298,7 +1304,7 @@ func (s *levelsController) runCompactDef(id, l int, cd compactDef) (err error) {
 	from := append(tablesToString(cd.top), tablesToString(cd.bot)...)
 	to := tablesToString(newTables)
 
-	if dur := time.Since(timeStart); dur > 2*time.Second {
+	if dur := time.Since(timeStart); dur > 2*time.Second || true {
 		var expensive string
 		if dur > time.Second {
 			expensive = " [E]"

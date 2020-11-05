@@ -281,9 +281,10 @@ func (s *levelHandler) get(key []byte) (y.ValueStruct, error) {
 			}
 		}
 	}
-	if len(fname) != 0 {
-		fmt.Println("filename: ", fname)
-	}
+	_ = fname
+	// if len(fname) != 0 {
+	// 	fmt.Println("filename: ", fname)
+	// }
 	return maxVs, decr()
 }
 

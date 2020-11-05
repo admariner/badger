@@ -106,9 +106,10 @@ func txnDelete(t *testing.T, kv *DB, key []byte) {
 
 // Opens a badger db and runs a a test on it.
 func runBadgerTest(t *testing.T, opts *Options, test func(t *testing.T, db *DB)) {
-	dir, err := ioutil.TempDir("", "badger-test")
+	dir, err := ioutil.TempDir("/home/ash/my", "badger-test")
 	require.NoError(t, err)
-	defer removeDir(dir)
+
+	// defer removeDir(dir)
 	if opts == nil {
 		opts = new(Options)
 		*opts = getTestOptions(dir)
@@ -521,7 +522,7 @@ func TestGetMore(t *testing.T) {
 	runBadgerTest(t, nil, func(t *testing.T, db *DB) {
 
 		data := func(i int) []byte {
-			return []byte(fmt.Sprintf("%d-", i))
+			return []byte(fmt.Sprintf("%06d-", i))
 		}
 		//	n := 500000
 		n := 10000
@@ -604,6 +605,7 @@ func TestGetMore(t *testing.T) {
 		db.validate()
 
 		fmt.Println("======== Testing ===== ")
+		var lis []string
 		for i := 0; i < n; i++ {
 			// if (i % 10000) == 0 {
 			// 	// Display some progress. Right now, it's not very fast with no caching.
@@ -612,8 +614,17 @@ func TestGetMore(t *testing.T) {
 			k := data(i)
 			txn := db.NewTransaction(false)
 			_, err := txn.Get([]byte(k))
-			require.Equal(t, ErrKeyNotFound, err, "should not have found k: %q", k)
+
+			if err != ErrKeyNotFound {
+				lis = append(lis, string(k))
+			}
+			//require.Equal(t, ErrKeyNotFound, err, "should not have found k: %q", k)
 			txn.Discard()
+		}
+		if len(lis) > 0 {
+			fmt.Println("====== list is ", lis)
+			fmt.Println(len(lis))
+			panic("cometi")
 		}
 	})
 }
